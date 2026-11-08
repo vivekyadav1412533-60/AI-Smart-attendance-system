@@ -1,0 +1,332 @@
+7# AI-Smart-attendance-system
+
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart AI Attendance System</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;
+ font-family:Arial,sans-serif;
+ background:#101827;
+ color:white;
+}
+header{
+ background:linear-gradient(120deg,#0866dc,#823ee8);
+ text-align:center;
+ padding:25px 12px;
+}
+.container{max-width:750px;margin:auto;padding:15px}
+.card{
+ background:#1c293b;
+ padding:20px;
+ border-radius:15px;
+ margin:18px 0;
+}
+h2{color:#68aaff}
+input{
+ width:100%;
+ padding:13px;
+ margin:8px 0;
+ border:0;
+ border-radius:8px;
+ font-size:16px;
+}
+button{
+ width:100%;
+ padding:13px;
+ margin-top:10px;
+ border:0;
+ border-radius:8px;
+ background:#2678ff;
+ color:white;
+ font-size:16px;
+ cursor:pointer;
+}
+video{
+ width:100%;
+ background:black;
+ border-radius:12px;
+ margin-top:10px;
+}
+.record{
+ background:#293b53;
+ padding:13px;
+ margin:10px 0;
+ border-radius:9px;
+}
+.green{color:#46e9a0}
+.stats{
+ display:grid;
+ grid-template-columns:1fr 1fr;
+ gap:12px;
+}
+.stat{
+ background:#293b53;
+ text-align:center;
+ padding:15px;
+ border-radius:10px;
+}
+.stat h1{color:#68aaff}
+small{color:#bdcce0}
+</style>
+</head>
+
+<body>
+
+<header>
+<h1>🤖 Smart AI Attendance</h1>
+<p>Student Registration & Attendance Portal</p>
+</header>
+
+<div class="container">
+
+<div class="card">
+<h2>👨‍🎓 Student Registration</h2>
+
+<input id="studentName" placeholder="Student Name">
+<input id="studentID" placeholder="Student ID">
+
+<button onclick="registerStudent()">
+Register Student
+</button>
+
+<p id="regMessage"></p>
+<h3>Registered Students</h3>
+<div id="studentList"></div>
+</div>
+
+<div class="card">
+<h2>📸 Camera Verification</h2>
+
+<video id="camera" autoplay playsinline></video>
+
+<button onclick="startCamera()">Start Camera</button>
+<button onclick="stopCamera()">Stop Camera</button>
+
+<small>
+यह कैमरा लाइव प्रीव्यू के लिए है।
+इस डेमो में फोटो सेव या फेस रिकग्निशन नहीं होता।
+</small>
+</div>
+
+<div class="card">
+<h2>✅ Mark Attendance</h2>
+
+<input id="verifyID" placeholder="Enter Student ID">
+
+<button onclick="markAttendance()">
+Verify Student & Mark Present
+</button>
+
+<p id="result"></p>
+</div>
+
+<div class="card">
+<h2>📊 Dashboard</h2>
+
+<div class="stats">
+<div class="stat">
+<h1 id="total">0</h1>
+Total Students
+</div>
+
+<div class="stat">
+<h1 id="present">0</h1>
+Present Today
+</div>
+</div>
+</div>
+
+<div class="card">
+<h2>📋 Attendance Records</h2>
+<div id="attendanceList"></div>
+
+<button onclick="downloadRecords()">
+Download Attendance CSV
+</button>
+</div>
+
+</div>
+
+<script>
+let students = JSON.parse(
+ localStorage.getItem("students") || "[]"
+);
+
+let records = JSON.parse(
+ localStorage.getItem("records") || "[]"
+);
+
+let stream = null;
+
+function registerStudent(){
+
+ let name = document.getElementById("studentName").value.trim();
+ let id = document.getElementById("studentID").value.trim();
+
+ if(!name || !id){
+  alert("Name और ID भरें");
+  return;
+ }
+
+ if(students.length >= 5){
+  alert("इस Demo में केवल 5 Students Register हो सकते हैं");
+  return;
+ }
+
+ if(students.some(s => s.id.toLowerCase() === id.toLowerCase())){
+  alert("यह ID पहले से मौजूद है");
+  return;
+ }
+
+ students.push({name,id});
+
+ localStorage.setItem("students",JSON.stringify(students));
+
+ document.getElementById("studentName").value="";
+ document.getElementById("studentID").value="";
+
+ document.getElementById("regMessage").textContent =
+ "Registration Successful!";
+
+ showAll();
+}
+
+async function startCamera(){
+
+ try{
+  stream = await navigator.mediaDevices.getUserMedia({
+   video:{facingMode:"user"},
+   audio:false
+  });
+
+  document.getElementById("camera").srcObject=stream;
+
+ }catch(e){
+  alert("Camera permission दें या HTTPS पर वेबसाइट खोलें");
+ }
+}
+
+function stopCamera(){
+
+ if(stream){
+  stream.getTracks().forEach(t=>t.stop());
+  stream=null;
+ }
+
+ document.getElementById("camera").srcObject=null;
+}
+
+function markAttendance(){
+
+ let id = document.getElementById("verifyID").value.trim();
+
+ let student = students.find(
+  s=>s.id.toLowerCase()===id.toLowerCase()
+ );
+
+ let result = document.getElementById("result");
+
+ if(!student){
+  result.textContent="Student नहीं मिला!";
+  return;
+ }
+
+ let today = new Date().toLocaleDateString("en-IN");
+
+ let already = records.some(
+  r=>r.id===id && r.date===today
+ );
+
+ if(already){
+  result.textContent="आज की Attendance पहले से लगी है!";
+  return;
+ }
+
+ records.unshift({
+  name:student.name,
+  id:student.id,
+  date:today,
+  time:new Date().toLocaleTimeString("en-IN")
+ });
+
+ localStorage.setItem("records",JSON.stringify(records));
+
+ result.textContent="Attendance Successfully Marked!";
+
+ document.getElementById("verifyID").value="";
+
+ showAll();
+}
+
+function showAll(){
+
+ let studentList=document.getElementById("studentList");
+ studentList.innerHTML="";
+
+ students.forEach(s=>{
+  let div=document.createElement("div");
+  div.className="record";
+  div.textContent=s.name+" | ID: "+s.id;
+  studentList.appendChild(div);
+ });
+
+ let list=document.getElementById("attendanceList");
+ list.innerHTML="";
+
+ records.forEach(r=>{
+  let div=document.createElement("div");
+  div.className="record";
+
+  let title=document.createElement("b");
+  title.textContent=r.name+" ("+r.id+") ";
+
+  let status=document.createElement("span");
+  status.className="green";
+  status.textContent=" PRESENT";
+
+  let detail=document.createElement("p");
+  detail.textContent=r.date+" | "+r.time;
+
+  div.append(title,status,detail);
+  list.appendChild(div);
+ });
+
+ document.getElementById("total").textContent=students.length;
+
+ let today=new Date().toLocaleDateString("en-IN");
+
+ document.getElementById("present").textContent=
+ records.filter(r=>r.date===today).length;
+}
+
+function downloadRecords(){
+
+ let csv="Name,ID,Date,Time\n";
+
+ records.forEach(r=>{
+  csv+=`"${r.name}","${r.id}","${r.date}","${r.time}"\n`;
+ });
+
+ let blob=new Blob([csv],{type:"text/csv"});
+ let url=URL.createObjectURL(blob);
+
+ let a=document.createElement("a");
+ a.href=url;
+ a.download="attendance.csv";
+ a.click();
+
+ URL.revokeObjectURL(url);
+}
+
+showAll();
+</script>
+
+</body>
+  </html>
+  
